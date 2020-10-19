@@ -3,9 +3,9 @@ on:
   workflow_dispatch:
 
 env:
-  GROUP_ID: com.octokat.app
-  ARTIFACT_ID: octokat-app
-  VERSION: 1.0-SNAPSHOT
+  GROUP_ID: junit
+  ARTIFACT_ID: junit
+  VERSION: '4.11'
   CLASS_NAME: PublishApp
 
 jobs:
@@ -59,7 +59,3 @@ jobs:
         run: mvn deploy -DaltDeploymentRepository=github::default::https://maven.pkg.github.com/${{ github.repository }} --no-transfer-progress
         env:
           GITHUB_TOKEN: ${{ github.token }} # GITHUB_TOKEN is the default env for the password
-
-      - run: gh api repos/${{ github.repository_owner }}/maven-install/dispatches <<< '{"event_type":"build"}' --input -
-        env:
-          GITHUB_TOKEN: ${{ secrets.REPO_TOKEN }}
