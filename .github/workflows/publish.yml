@@ -1,0 +1,65 @@
+on:
+  push:
+  workflow_dispatch:
+
+env:
+  GROUP_ID: com.octokat.app
+  ARTIFACT_ID: octokat-app
+  VERSION: 1.0-SNAPSHOT
+  CLASS_NAME: PublishApp
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up JDK 1.8
+        uses: actions/setup-java@v1
+        with:
+          java-version: 1.8
+
+      - name: Add simple pom.xml
+        run: |
+          cat > pom.xml << EOM
+          <?xml version="1.0" encoding="UTF-8"?>
+          <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+            <modelVersion>4.0.0</modelVersion>
+            <groupId>${{ env.GROUP_ID }}</groupId>
+            <artifactId>${{ env.ARTIFACT_ID }}</artifactId>
+            <version>${{ env.VERSION }}</version>
+          </project>
+          EOM
+
+      - name: Add ${{ env.CLASS_NAME }}.java file
+        run: |
+          SOURCE_DIR=src/main/java/$(echo ${{ env.GROUP_ID }} | tr . /)
+          mkdir -p $SOURCE_DIR
+          SOURCE_PATH=$SOURCE_DIR/${{ env.CLASS_NAME }}.java
+          cat <<- END > $SOURCE_PATH
+          package ${{ env.GROUP_ID }};
+          public class ${{ env.CLASS_NAME }}
+          {
+              public static void main( String[] args )
+              {
+                  System.out.println( "Hello from ${{ github.repository }}, commit ${{ github.sha }}, run number ${{ github.run_number }}!" );
+              }
+          }
+          END
+
+      - name: Build package
+        run: mvn package --no-transfer-progress
+
+      - name: Run package
+        run: java -cp target/${{ env.ARTIFACT_ID }}-${{ env.VERSION }}.jar ${{ env.GROUP_ID }}.${{ env.CLASS_NAME }}
+
+      - name: Deploy package
+        run: mvn deploy -DaltDeploymentRepository=github::default::https://maven.pkg.github.com/${{ github.repository }} --no-transfer-progress
+        env:
+          GITHUB_TOKEN: ${{ github.token }} # GITHUB_TOKEN is the default env for the password
+
+      - run: gh api repos/${{ github.repository_owner }}/maven-install/dispatches <<< '{"event_type":"build"}' --input -
+        env:
+          GITHUB_TOKEN: ${{ secrets.REPO_TOKEN }}
